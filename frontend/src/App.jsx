@@ -385,6 +385,10 @@ export default function App() {
   const [error, setError] = useState("");
   const [demographics, setDemographics] = useState({});
   const [analyzing, setAnalyzing] = useState(false);
+  const [imagePrompt, setImagePrompt] = useState("");
+  const [images, setImages] = useState([]);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [imageError, setImageError] = useState("");
   const textareaRef = useRef(null);
 
   const handleSubmit = async () => {
@@ -435,6 +439,27 @@ export default function App() {
       console.error("Analysis failed:", e);
     } finally {
       setAnalyzing(false);
+    }
+  };
+
+  const handleImageGenerate = async () => {
+    if (!imagePrompt.trim() || imageLoading) return;
+    setImageLoading(true);
+    setImages([]);
+    setImageError("");
+    try {
+      const res = await fetch(API_URL + "/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: imagePrompt.trim() }),
+      });
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const data = await res.json();
+      setImages(data.results || []);
+    } catch (err) {
+      setImageError(err.message || "Failed to generate images.");
+    } finally {
+      setImageLoading(false);
     }
   };
 
@@ -640,6 +665,163 @@ export default function App() {
         .tag-north   { background: rgba(56,189,248,0.12);  color: #38bdf8; border: 1px solid rgba(56,189,248,0.2);  }
         .tag-south   { background: rgba(251,146,60,0.12);  color: #fb923c; border: 1px solid rgba(251,146,60,0.2);  }
         .tag-unknown { background: rgba(255,255,255,0.05); color: #555;    border: 1px solid #2a2a2a; }
+
+        /* ── Image Section ── */
+        .img-section {
+          width: 100%; max-width: 1100px;
+          margin-top: 56px;
+          position: relative; z-index: 1;
+          padding-top: 48px;
+          border-top: 1px solid #1a1a1a;
+        }
+
+        .img-section-header { margin-bottom: 20px; }
+
+        .img-case-badge {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 10px;
+          color: #555;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid #2a2a2a;
+          padding: 2px 10px;
+          border-radius: 20px;
+          letter-spacing: 0.06em;
+        }
+
+        .img-input-row {
+          display: flex;
+          gap: 12px;
+          align-items: stretch;
+          margin-bottom: 24px;
+        }
+
+        .img-prompt-box {
+          flex: 1;
+          background: #141414;
+          border: 1px solid #2a2a2a;
+          border-radius: 12px;
+          padding: 0 16px;
+          display: flex;
+          align-items: center;
+          transition: border-color 0.2s;
+        }
+
+        .img-prompt-box:focus-within { border-color: #404040; }
+
+        .img-input {
+          width: 100%;
+          background: transparent;
+          border: none;
+          outline: none;
+          color: #e8e8e8;
+          font-family: 'Syne', sans-serif;
+          font-size: 14px;
+          padding: 14px 0;
+          position: relative;
+          z-index: 2;
+          pointer-events: all;
+        }
+
+        .img-input::placeholder { color: #444; }
+
+        .img-btn {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: #fff;
+          color: #0a0a0a;
+          border: none;
+          border-radius: 12px;
+          padding: 0 22px;
+          font-family: 'Syne', sans-serif;
+          font-size: 14px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.15s;
+          white-space: nowrap;
+          pointer-events: all;
+          position: relative;
+          z-index: 2;
+        }
+
+        .img-btn:hover:not(:disabled) { background: #e0e0e0; transform: translateY(-1px); }
+        .img-btn:disabled { background: #222; color: #555; cursor: not-allowed; transform: none; }
+
+        .img-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 20px;
+        }
+
+        @media (max-width: 800px) { .img-grid { grid-template-columns: 1fr; } }
+
+        .img-card {
+          background: #111;
+          border: 1px solid #1e1e1e;
+          border-radius: 16px;
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          animation: fadeUp 0.4s ease forwards;
+        }
+
+        .img-card-loading { opacity: 0.7; }
+
+        .img-card-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .img-model-label {
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: -0.01em;
+        }
+
+        .img-success-badge {
+          font-size: 13px;
+          font-weight: 700;
+          color: #10a37f;
+        }
+
+        .img-error-badge {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 10px;
+          color: #ff6b6b;
+          background: rgba(255,80,80,0.08);
+          border: 1px solid rgba(255,80,80,0.2);
+          padding: 2px 8px;
+          border-radius: 4px;
+        }
+
+        .img-placeholder {
+          width: 100%;
+          aspect-ratio: 1;
+          border-radius: 8px;
+          overflow: hidden;
+        }
+
+        .img-result {
+          width: 100%;
+          aspect-ratio: 1;
+          object-fit: cover;
+          border-radius: 8px;
+          display: block;
+          border: 1px solid #1e1e1e;
+        }
+
+        .img-error-box {
+          padding: 24px 16px;
+          background: rgba(255,80,80,0.05);
+          border: 1px solid rgba(255,80,80,0.1);
+          border-radius: 8px;
+          color: #ff6b6b;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 11px;
+          text-align: center;
+        }
       `}</style>
 
       <div className="app">
@@ -718,6 +900,100 @@ export default function App() {
         {(Object.keys(demographics).length > 0 || analyzing) && (
           <BiasPanel demographics={demographics} analyzing={analyzing} />
         )}
+        
+      {/* ── Image Generation Section ── */}
+        <div className="img-section">
+          <div className="img-section-header">
+            <div className="bias-title-row">
+              <h1><span className="bias-eyebrow">Image Generation</span></h1>
+            </div>
+          </div>
+
+          <div className="img-input-row">
+            <div className="img-prompt-box">
+              <input
+                type="text"
+                className="img-input"
+                placeholder="Enter an image prompt here…"
+                value={imagePrompt}
+                onChange={(e) => setImagePrompt(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleImageGenerate()}
+              />
+            </div>
+            <button
+              className="img-btn"
+              onClick={handleImageGenerate}
+              disabled={imageLoading || !imagePrompt.trim()}
+            >
+              {imageLoading ? (
+                <><span className="analyze-spinner" /> Generating…</>
+              ) : (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                  </svg>
+                  Generate Images
+                </>
+              )}
+            </button>
+          </div>
+
+          {imageError && <div className="error-msg" style={{ marginTop: "12px" }}>⚠ {imageError}</div>}
+
+          {imageLoading && (
+            <div className="img-grid">
+              {[
+                { label: "DALL·E 3", color: "#10a37f" },
+                { label: "Gemini Image", color: "#4285f4" },
+                { label: "Grok Imagine", color: "#e7e7e7" },
+              ].map((m) => (
+                <div key={m.label} className="img-card img-card-loading">
+                  <div className="img-card-header">
+                    <span className="img-model-label" style={{ color: m.color }}>{m.label}</span>
+                    <div className="pulse-dots"><span /><span /><span /></div>
+                  </div>
+                  <div className="img-placeholder">
+                    <div className="skeleton" style={{ width: "100%", height: "100%", borderRadius: "8px" }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {images.length > 0 && !imageLoading && (
+            <div className="img-grid">
+              {images.map((item, i) => {
+                const providerMap = {
+                  google: { label: "Gemini Image", color: "#4285f4" },
+                  openai: { label: "DALL·E 3", color: "#10a37f" },
+                  xai:    { label: "Grok Imagine", color: "#e7e7e7" },
+                };
+                const meta = providerMap[item.provider] || { label: item.provider, color: "#888" };
+                return (
+                  <div key={i} className="img-card">
+                    <div className="img-card-header">
+                      <span className="img-model-label" style={{ color: meta.color }}>{meta.label}</span>
+                      {item.error ? (
+                        <span className="img-error-badge">Failed</span>
+                      ) : (
+                        <span className="img-success-badge">✓</span>
+                      )}
+                    </div>
+                    {item.error ? (
+                      <div className="img-error-box">{item.error}</div>
+                    ) : (
+                      <img
+                        src={item.image}
+                        alt={`Generated by ${meta.label}`}
+                        className="img-result"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </>
   );

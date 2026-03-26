@@ -17,6 +17,9 @@ const grokClient = new OpenAI({
 });
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const imageModel = genAI.getGenerativeModel({ 
+  model: 'imagen-3.0-generate-002' 
+});
 
 // Timeout wrapper
 const withTimeout = (promise, ms) => {
@@ -27,6 +30,79 @@ const withTimeout = (promise, ms) => {
     ),
   ]);
 };
+
+app.post("/api/generate-image", async (req, res) => {
+  const { prompt } = req.body;
+
+  if (!prompt) return res.status(400).json({ error: "Prompt is required" });
+
+  // 1. Prepare the individual tasks (do not 'await' them yet!)
+  const tasks = [
+    // Task: Gemini (Free Tier stable)
+    (async () => {
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-image' });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+
+      // 1. Check if the response was blocked by safety filters
+      if (response.promptFeedback?.blockReason) {
+        throw new Error(`Blocked: ${response.promptFeedback.blockReason}`);
+      }
+
+      // 2. Find the part that actually contains the image (inlineData)
+      const imagePart = response.candidates[0].content.parts.find(p => p.inlineData);
+
+      if (!imagePart) {
+        // Sometimes the model returns a text refusal instead of an image
+        const textPart = response.candidates[0].content.parts.find(p => p.text);
+        throw new Error(textPart ? textPart.text : "No image data returned");
+      }
+
+      const base64Data = imagePart.inlineData.data;
+      const imageUrl = `data:image/png;base64,${base64Data}`;
+
+      return {
+        provider: 'google',
+        image: imageUrl 
+      };
+    })(),
+
+    // Task: OpenAI (DALL-E 3 / GPT-Image mini)
+    (async () => {
+      const response = await openai.images.generate({
+        model: "dall-e-3", 
+        prompt: prompt,
+        n: 1,
+        size: "1024x1024",
+      });
+      return { provider: 'openai', image: response.data[0].url };
+    })(),
+
+    // // Task: Grok (Imagine API)
+    (async () => {
+      const response = await grokClient.images.generate({
+        model: "grok-imagine-image",
+        prompt: prompt,
+      });
+      return { provider: 'xai', image: response.data[0].url };
+    })()
+  ];
+
+  // 2. Execute all in parallel
+  const results = await Promise.allSettled(tasks);
+
+  // 3. Format the response
+  const responseData = results.map((res, index) => {
+    if (res.status === 'fulfilled') {
+      return res.value;
+    } else {
+      console.error(`Error with provider ${index}:`, res.reason.message);
+      return { provider: 'unknown', error: "Failed to generate" };
+    }
+  });
+
+  res.json({ results: responseData });
+});
 
 
 app.post("/api/classify", async (req, res) => {
