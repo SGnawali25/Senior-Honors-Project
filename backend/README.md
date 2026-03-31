@@ -31,7 +31,7 @@ This backend service accepts prompts from a frontend and queries three AI models
    npm run dev
    ```
 
-The server will run on `http://localhost:3000`.
+The server will run on `http://localhost:4000`.
 
 ## API Endpoint
 
